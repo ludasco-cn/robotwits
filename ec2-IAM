@@ -1,0 +1,272 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "AWS CloudFormation Sample Template VPC_EC2_Instance_with_EIP_and_Security_Group: Sample template showing how to create an instance with an Elastic IP address and a security group in an existing VPC. It assumes you have already created a VPC. **WARNING** This template creates an Amazon EC2 instance. You will be billed for the AWS resources used if you create a stack from this template.",
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of and existing EC2 KeyPair to enable SSH access to the instance",
+            "Type": "String",
+            "Default": "ROS AWS instance",
+            "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+        },
+        "VpcId": {
+            "Type": "String",
+            "Description": "VpcId of your existing Virtual Private Cloud (VPC)",
+            "Default": "vpc-3237374a"
+        },
+        "SubnetId": {
+            "Type": "String",
+            "Description": "SubnetId of an existing subnet in your Virtual Private Cloud (VPC)",
+            "Default": "subnet-21b62d7c"
+        },
+        "InstanceType": {
+            "Description": "WebServer EC2 instance type",
+            "Type": "String",
+            "Default": "m4.xlarge",
+            "AllowedValues": [
+                "t2.nano",
+                "t2.micro",
+                "t2.small",
+                "t2.medium",
+                "t2.large",
+                "t2.xlarge",
+                "m3.medium",
+                "m3.large",
+                "m3.xlarge",
+                "m3.2xlarge",
+                "m4.large",
+                "m4.xlarge",
+                "m4.2xlarge",
+                "m4.4xlarge",
+                "m4.10xlarge",
+                "r3.large",
+                "r3.xlarge",
+                "r3.2xlarge",
+                "r3.4xlarge",
+                "r3.8xlarge",
+                "r4.large",
+                "r4.xlarge",
+                "r4.2xlarge",
+                "r4.4xlarge",
+                "r4.8xlarge"
+            ],
+            "ConstraintDescription": "must be a valid EC2 instance type."
+        },
+        "StudentName": {
+            "Description": "Student Name",
+            "NoEcho": "false",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "41",
+            "AllowedPattern": "[a-zA-Z0-9]*",
+            "ConstraintDescription": "must contain only alphanumeric characters."
+        },
+        "Password": {
+            "NoEcho": "true",
+            "Type": "String",
+            "Description": "New account Password",
+            "MinLength": "1",
+            "MaxLength": "41"
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "Instance Configuration"
+                    },
+                    "Parameters": [
+                        "InstanceType",
+                        "KeyName",
+                        "VpcId",
+                        "SubnetId"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "User Configuration"
+                    },
+                    "Parameters": [
+                        "StudentName",
+                        "Password"
+                    ]
+                }
+            ]
+        }
+    },
+    "Mappings": {
+        "RegionMap": {
+            "us-east-1": {
+                "AMI": "ami-d91721a3"
+            },
+            "us-west-1": {
+                "AMI": "ami-4033d556"
+            },
+            "us-west-2": {
+                "AMI": "ami-4033d556"
+            },
+            "eu-west-1": {
+                "AMI": "ami-4033d556"
+            },
+            "sa-east-1": {
+                "AMI": "ami-4033d556"
+            },
+            "ap-southeast-1": {
+                "AMI": "ami-4033d556"
+            },
+            "ap-southeast-2": {
+                "AMI": "ami-4033d556"
+            },
+            "ap-northeast-1": {
+                "AMI": "ami-4033d556"
+            }
+        }
+    },
+    "Resources": {
+        "IPAddress": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc",
+                "InstanceId": {
+                    "Ref": "Ec2Instance"
+                }
+            }
+        },
+        "IAMPolicy": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": {
+                    "Fn::Join": [
+                        "-",
+                        [
+                            "IAM-EC2-Access",
+                            {
+                                "Ref": "StudentName"
+                            }
+                        ]
+                    ]
+                },
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "ec2:StartInstances",
+                                "ec2:StopInstances"
+                            ],
+                            "Resource": [
+                                {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "arn:aws:ec2:*:*:instance/",
+                                            {
+                                                "Ref": "Ec2Instance"
+                                            },
+                                            ""
+                                        ]
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": "ec2:DescribeInstances",
+                            "Resource": "*"
+                        }
+                    ]
+                },
+                "Users": [
+                    {
+                        "Ref": "StudentName"
+                    }
+                ]
+            },
+            "DependsOn": [
+                "Ec2Instance",
+                "IAMUser"
+            ]
+        },
+        "IAMUser": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/",
+                "UserName": {
+                    "Ref": "StudentName"
+                },
+                "LoginProfile": {
+                    "Password": {
+                        "Ref": "Password"
+                    }
+                }
+            }
+        },
+        "Ec2Instance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "SecurityGroupIds": [
+                    "sg-77989803"
+                ],
+                "SubnetId": {
+                    "Ref": "SubnetId"
+                },
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Join": [
+                                "-",
+                                [
+                                    "student",
+                                    {
+                                        "Ref": "StudentName"
+                                    }
+                                ]
+                            ]
+                        }
+                    }
+                ],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "VolumeType": "gp2",
+                            "DeleteOnTermination": "true",
+                            "VolumeSize": "15"
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "InstanceId": {
+            "Value": {
+                "Ref": "Ec2Instance"
+            },
+            "Description": "Instance Id of newly created instance"
+        },
+        "IPAddress": {
+            "Value": {
+                "Ref": "IPAddress"
+            },
+            "Description": "Public IP address of instance"
+        }
+    }
+}
